@@ -140,3 +140,134 @@ export function getGraphData(
   }
   return apiFetch<GraphData>(`/api/v1/graph/${encodeURIComponent(entityId)}?${params}`);
 }
+
+// --- Investigations ---
+
+export interface Investigation {
+  id: string;
+  title: string;
+  description: string;
+  created_at: string;
+  updated_at: string;
+  entity_ids: string[];
+  share_token: string | null;
+}
+
+export interface InvestigationListResponse {
+  investigations: Investigation[];
+  total: number;
+}
+
+export interface Annotation {
+  id: string;
+  entity_id: string;
+  investigation_id: string;
+  text: string;
+  created_at: string;
+}
+
+export interface Tag {
+  id: string;
+  investigation_id: string;
+  name: string;
+  color: string;
+}
+
+export function listInvestigations(
+  page = 1,
+  size = 20,
+): Promise<InvestigationListResponse> {
+  const params = new URLSearchParams({ page: String(page), size: String(size) });
+  return apiFetch<InvestigationListResponse>(`/api/v1/investigations?${params}`);
+}
+
+export function getInvestigation(id: string): Promise<Investigation> {
+  return apiFetch<Investigation>(`/api/v1/investigations/${encodeURIComponent(id)}`);
+}
+
+export function createInvestigation(
+  title: string,
+  description?: string,
+): Promise<Investigation> {
+  return apiFetch<Investigation>("/api/v1/investigations", {
+    method: "POST",
+    body: JSON.stringify({ title, description: description ?? "" }),
+  });
+}
+
+export function updateInvestigation(
+  id: string,
+  data: { title?: string; description?: string },
+): Promise<Investigation> {
+  return apiFetch<Investigation>(
+    `/api/v1/investigations/${encodeURIComponent(id)}`,
+    { method: "PATCH", body: JSON.stringify(data) },
+  );
+}
+
+export function deleteInvestigation(id: string): Promise<void> {
+  return apiFetch<void>(`/api/v1/investigations/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
+
+export function addEntityToInvestigation(
+  investigationId: string,
+  entityId: string,
+): Promise<void> {
+  return apiFetch<void>(
+    `/api/v1/investigations/${encodeURIComponent(investigationId)}/entities`,
+    { method: "POST", body: JSON.stringify({ entity_id: entityId }) },
+  );
+}
+
+export function listAnnotations(investigationId: string): Promise<Annotation[]> {
+  return apiFetch<Annotation[]>(
+    `/api/v1/investigations/${encodeURIComponent(investigationId)}/annotations`,
+  );
+}
+
+export function createAnnotation(
+  investigationId: string,
+  entityId: string,
+  text: string,
+): Promise<Annotation> {
+  return apiFetch<Annotation>(
+    `/api/v1/investigations/${encodeURIComponent(investigationId)}/annotations`,
+    { method: "POST", body: JSON.stringify({ entity_id: entityId, text }) },
+  );
+}
+
+export function listTags(investigationId: string): Promise<Tag[]> {
+  return apiFetch<Tag[]>(
+    `/api/v1/investigations/${encodeURIComponent(investigationId)}/tags`,
+  );
+}
+
+export function createTag(
+  investigationId: string,
+  name: string,
+  color?: string,
+): Promise<Tag> {
+  return apiFetch<Tag>(
+    `/api/v1/investigations/${encodeURIComponent(investigationId)}/tags`,
+    { method: "POST", body: JSON.stringify({ name, color: color ?? "#e07a2f" }) },
+  );
+}
+
+export function generateShareLink(
+  investigationId: string,
+): Promise<{ share_token: string }> {
+  return apiFetch<{ share_token: string }>(
+    `/api/v1/investigations/${encodeURIComponent(investigationId)}/share`,
+    { method: "POST" },
+  );
+}
+
+export function exportInvestigation(investigationId: string): Promise<Blob> {
+  const url = `${API_BASE}/api/v1/investigations/${encodeURIComponent(investigationId)}/export`;
+  return fetch(url).then((res) => {
+    if (!res.ok) throw new ApiError(res.status, `API error: ${res.statusText}`);
+    return res.blob();
+  });
+}

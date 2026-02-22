@@ -21,6 +21,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <nav className={styles.nav}>
           <Link to="/search">{t("nav.search")}</Link>
           <Link to="/patterns">{t("nav.patterns")}</Link>
+          <Link to="/investigations">{t("nav.investigations")}</Link>
         </nav>
         <button onClick={toggleLang} className={styles.langToggle}>
           {i18n.language === "pt-BR" ? "EN" : "PT"}
