@@ -54,7 +54,7 @@ async def execute_query_single(
 async def ensure_schema(driver: AsyncDriver) -> None:
     """Run schema_init.cypher statements on startup. All use IF NOT EXISTS so idempotent."""
     raw = CypherLoader.load("schema_init")
-    statements = [s.strip() for s in raw.split(";") if s.strip() and not s.strip().startswith("//")]
+    statements = [s.strip() for s in raw.split(";") if s.strip()]
     async with driver.session() as session:
         for stmt in statements:
             # Skip comment-only lines

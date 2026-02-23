@@ -1,3 +1,4 @@
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -11,12 +12,28 @@ from icarus.config import settings
 from icarus.dependencies import close_driver, init_driver
 from icarus.middleware.cpf_masking import CPFMaskingMiddleware
 from icarus.middleware.rate_limit import limiter
-from icarus.routers import auth, baseline, entity, graph, investigation, meta, patterns, search
+from icarus.routers import (
+    auth,
+    baseline,
+    entity,
+    graph,
+    investigation,
+    meta,
+    patterns,
+    search,
+)
 from icarus.services.neo4j_service import ensure_schema
+
+_logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    if settings.jwt_secret_key == "change-me-in-production" or len(settings.jwt_secret_key) < 32:
+        _logger.critical(
+            "JWT secret is weak or default"
+            " — set JWT_SECRET_KEY env var (>= 32 chars)"
+        )
     driver = await init_driver()
     app.state.neo4j_driver = driver
     await ensure_schema(driver)

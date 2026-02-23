@@ -67,11 +67,10 @@ export interface SearchResponse {
 
 export interface EntityDetail {
   id: string;
-  name: string;
   type: string;
-  document?: string;
-  properties: Record<string, unknown>;
+  properties: Record<string, string | number | boolean | null>;
   sources: SourceAttribution[];
+  is_pep: boolean;
 }
 
 export interface GraphNode {

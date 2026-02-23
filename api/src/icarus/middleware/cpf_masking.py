@@ -26,7 +26,7 @@ _CPF_FORMATTED = re.compile(r"\d{3}\.\d{3}\.\d{3}-\d{2}")
 _CPF_RAW = re.compile(r"(?<!\d)\d{11}(?!\d)")
 
 
-def _mask_formatted_cpf(cpf: str) -> str:
+def mask_formatted_cpf(cpf: str) -> str:
     """Mask a formatted CPF, keeping only the last 4 visible digits.
 
     Example: 123.456.789-00 -> ***.***.789-00
@@ -34,7 +34,7 @@ def _mask_formatted_cpf(cpf: str) -> str:
     return f"***.***.{cpf[8:]}"
 
 
-def _mask_raw_cpf(cpf: str) -> str:
+def mask_raw_cpf(cpf: str) -> str:
     """Mask a raw 11-digit CPF, keeping only the last 4 digits.
 
     Example: 12345678900 -> *******8900
@@ -94,12 +94,12 @@ def mask_cpfs_in_json(text: str, pep_cpfs: set[str] | None = None) -> str:
     def _replace_formatted(m: re.Match[str]) -> str:
         if _digits_only(m.group()) in safe:
             return m.group()
-        return _mask_formatted_cpf(m.group())
+        return mask_formatted_cpf(m.group())
 
     def _replace_raw(m: re.Match[str]) -> str:
         if m.group() in safe:
             return m.group()
-        return _mask_raw_cpf(m.group())
+        return mask_raw_cpf(m.group())
 
     text = _CPF_FORMATTED.sub(_replace_formatted, text)
     text = _CPF_RAW.sub(_replace_raw, text)

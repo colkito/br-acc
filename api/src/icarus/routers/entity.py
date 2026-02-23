@@ -50,6 +50,16 @@ def _node_to_entity(
     )
 
 
+def _format_cpf(digits: str) -> str:
+    """Format an 11-digit string as CPF: 123.456.789-00."""
+    return f"{digits[:3]}.{digits[3:6]}.{digits[6:9]}-{digits[9:]}"
+
+
+def _format_cnpj(digits: str) -> str:
+    """Format a 14-digit string as CNPJ: 12.345.678/0001-00."""
+    return f"{digits[:2]}.{digits[2:5]}.{digits[5:8]}/{digits[8:12]}-{digits[12:]}"
+
+
 @router.get("/{cpf_or_cnpj}", response_model=EntityResponse)
 async def get_entity(
     cpf_or_cnpj: str,
@@ -60,8 +70,15 @@ async def get_entity(
     if not CPF_PATTERN.match(identifier) and not CNPJ_PATTERN.match(identifier):
         raise HTTPException(status_code=400, detail="Invalid CPF or CNPJ format")
 
+    if CPF_PATTERN.match(identifier):
+        identifier_formatted = _format_cpf(identifier)
+    else:
+        identifier_formatted = _format_cnpj(identifier)
+
     record = await execute_query_single(
-        session, "entity_lookup", {"identifier": identifier}
+        session,
+        "entity_lookup",
+        {"identifier": identifier, "identifier_formatted": identifier_formatted},
     )
     if record is None:
         raise HTTPException(status_code=404, detail="Entity not found")

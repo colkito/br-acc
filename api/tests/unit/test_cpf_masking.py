@@ -10,9 +10,9 @@ import pytest
 from icarus.middleware.cpf_masking import (
     _collect_pep_cpfs,
     _is_pep_record,
-    _mask_formatted_cpf,
-    _mask_raw_cpf,
     mask_cpfs_in_json,
+    mask_formatted_cpf,
+    mask_raw_cpf,
 )
 
 if TYPE_CHECKING:
@@ -26,18 +26,18 @@ if TYPE_CHECKING:
 
 class TestMaskFormattedCPF:
     def test_basic(self) -> None:
-        assert _mask_formatted_cpf("123.456.789-00") == "***.***.789-00"
+        assert mask_formatted_cpf("123.456.789-00") == "***.***.789-00"
 
     def test_another(self) -> None:
-        assert _mask_formatted_cpf("000.111.222-33") == "***.***.222-33"
+        assert mask_formatted_cpf("000.111.222-33") == "***.***.222-33"
 
 
 class TestMaskRawCPF:
     def test_basic(self) -> None:
-        assert _mask_raw_cpf("12345678900") == "*******8900"
+        assert mask_raw_cpf("12345678900") == "*******8900"
 
     def test_zeros(self) -> None:
-        assert _mask_raw_cpf("00000000000") == "*******0000"
+        assert mask_raw_cpf("00000000000") == "*******0000"
 
 
 class TestIsPepRecord:

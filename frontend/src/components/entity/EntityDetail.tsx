@@ -52,14 +52,20 @@ export function EntityDetail({ entityId, onClose }: EntityDetailProps) {
           >
             {t(`entity.${entity.type}`, entity.type)}
           </div>
-          <h3 className={styles.name}>{entity.name}</h3>
+          <h3 className={styles.name}>
+            {String(entity.properties.name || entity.properties.razao_social || entity.properties.nome || "N/A")}
+          </h3>
 
-          {entity.document && (
-            <p className={styles.document}>{entity.document}</p>
+          {(entity.properties.cpf || entity.properties.cnpj) && (
+            <p className={styles.document}>
+              {String(entity.properties.cpf || entity.properties.cnpj)}
+            </p>
           )}
 
           <div className={styles.properties}>
-            {Object.entries(entity.properties).map(([key, value]) => (
+            {Object.entries(entity.properties).filter(
+              ([key]) => !["name", "razao_social", "nome", "cpf", "cnpj"].includes(key),
+            ).map(([key, value]) => (
               <div key={key} className={styles.property}>
                 <span className={styles.propKey}>{key}</span>
                 <span className={styles.propValue}>{String(value ?? "—")}</span>

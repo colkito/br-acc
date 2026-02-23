@@ -4,7 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse, Response
 from neo4j import AsyncSession
 
+from icarus.constants import PEP_ROLES
 from icarus.dependencies import CurrentUser, get_session
+from icarus.middleware.cpf_masking import mask_formatted_cpf, mask_raw_cpf
 from icarus.models.investigation import (
     Annotation,
     AnnotationCreate,
@@ -279,10 +281,23 @@ async def export_investigation_pdf(
         if record is not None:
             node = record["e"]
             labels = record["entity_labels"]
+            document = str(node.get("cpf", node.get("cnpj", "")))
+
+            # CB-SEC-04: Mask non-PEP CPFs in PDF export (middleware only covers JSON)
+            cpf_val = node.get("cpf")
+            if cpf_val and isinstance(cpf_val, str):
+                role = str(node.get("role", node.get("cargo", ""))).lower()
+                is_pep = role in PEP_ROLES
+                if not is_pep:
+                    if "." in document and "-" in document:
+                        document = mask_formatted_cpf(document)
+                    elif len(document) == 11 and document.isdigit():
+                        document = mask_raw_cpf(document)
+
             entities.append({
                 "name": str(node.get("name", "")),
                 "type": labels[0] if labels else "",
-                "document": str(node.get("cpf", node.get("cnpj", ""))),
+                "document": document,
             })
 
     pdf_bytes = await render_investigation_pdf(

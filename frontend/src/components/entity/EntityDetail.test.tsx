@@ -17,11 +17,10 @@ const mockGetEntityByElementId = vi.mocked(getEntityByElementId);
 
 const sampleEntity = {
   id: "e1",
-  name: "João Silva",
   type: "person",
-  document: "***.***.***-34",
-  properties: { role: "Diretor", city: "São Paulo" },
+  properties: { name: "João Silva", cpf: "***.***.***-34", role: "Diretor", city: "São Paulo" },
   sources: [{ database: "TSE" }, { database: "CNPJ" }],
+  is_pep: false,
 };
 
 describe("EntityDetail", () => {

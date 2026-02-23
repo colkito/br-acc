@@ -61,3 +61,7 @@ data/cnpj/raw/*
 data/cnpj/extracted/*
 data/cnpj/reference/*
 !data/cnpj/**/.gitkeep
+
+# Audit artifacts
+audit-results/
+scripts/audit-prompts/
