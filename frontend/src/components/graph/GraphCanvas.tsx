@@ -315,7 +315,41 @@ function GraphCanvasInner({
         fgRef.current?.zoomToFit(300, 50);
       }, 200);
     }
+    // Pause animation loop once layout settles — stops RAF from burning CPU
+    fgRef.current?.pauseAnimation();
   }, []);
+
+  // Cleanup: pause animation on unmount to stop RAF loop surviving navigation
+  useEffect(() => {
+    const fg = fgRef.current;
+    return () => {
+      fg?.pauseAnimation();
+    };
+  }, []);
+
+  // Stable canvas render callback — avoids ForceGraph2D re-initializing render pipeline
+  const nodeCanvasObjectMode = useCallback(() => "replace" as const, []);
+
+  const nodeCanvasObject = useCallback(
+    (node: GraphNodeObject, ctx: CanvasRenderingContext2D) => {
+      if (node.x == null || node.y == null) return;
+      const isDimmed = adjacentToHovered !== null && !adjacentToHovered.has(node.id);
+      renderNode(ctx, {
+        x: node.x,
+        y: node.y,
+        type: node.type,
+        label: node.label,
+        connectionCount: connectionCountsRef.current.get(node.id) ?? 0,
+        isCenter: node.id === centerId,
+        isSelected: selectedNodeIds.has(node.id),
+        isHovered: hoveredNodeId === node.id,
+        isDimmed,
+        isPep: false,
+        zoom: zoomRef.current,
+      });
+    },
+    [adjacentToHovered, centerId, selectedNodeIds, hoveredNodeId],
+  );
 
   const handleZoomIn = useCallback(() => fgRef.current?.zoom(zoomRef.current * 1.5, 300), []);
   const handleZoomOut = useCallback(() => fgRef.current?.zoom(zoomRef.current / 1.5, 300), []);
@@ -355,30 +389,14 @@ function GraphCanvasInner({
           onZoom={handleZoom}
           backgroundColor="rgba(0,0,0,0)"
           linkDirectionalParticles={0}
-          cooldownTicks={80}
-          d3AlphaDecay={0.02}
-          d3VelocityDecay={0.3}
+          cooldownTime={4000}
+          d3AlphaDecay={0.03}
+          d3VelocityDecay={0.5}
           warmupTicks={30}
           onEngineStop={handleEngineStop}
           dagMode={layoutMode === "hierarchy" ? "td" : undefined}
-          nodeCanvasObjectMode={() => "replace" as const}
-          nodeCanvasObject={(node: GraphNodeObject, ctx: CanvasRenderingContext2D) => {
-            if (node.x == null || node.y == null) return;
-            const isDimmed = adjacentToHovered !== null && !adjacentToHovered.has(node.id);
-            renderNode(ctx, {
-              x: node.x,
-              y: node.y,
-              type: node.type,
-              label: node.label,
-              connectionCount: connectionCountsRef.current.get(node.id) ?? 0,
-              isCenter: node.id === centerId,
-              isSelected: selectedNodeIds.has(node.id),
-              isHovered: hoveredNodeId === node.id,
-              isDimmed,
-              isPep: false,
-              zoom: zoomRef.current,
-            });
-          }}
+          nodeCanvasObjectMode={nodeCanvasObjectMode}
+          nodeCanvasObject={nodeCanvasObject}
         />
 
         <GraphLegend visible={sidebarCollapsed} />
