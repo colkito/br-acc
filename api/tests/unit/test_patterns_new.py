@@ -48,8 +48,8 @@ def test_shell_company_contracts_registered() -> None:
     assert PATTERN_QUERIES["shell_company_contracts"] == "pattern_shell_company_contracts"
 
 
-def test_pattern_count_is_thirteen() -> None:
-    assert len(PATTERN_QUERIES) == 13
+def test_pattern_count_is_eighteen() -> None:
+    assert len(PATTERN_QUERIES) == 18
 
 
 @pytest.mark.anyio

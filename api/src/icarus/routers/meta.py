@@ -48,7 +48,12 @@ async def database_stats(
         "education_count": record["education_count"] if record else 0,
         "convenio_count": record["convenio_count"] if record else 0,
         "laborstats_count": record["laborstats_count"] if record else 0,
-        "data_sources": 14,
+        "offshore_entity_count": record["offshore_entity_count"] if record else 0,
+        "offshore_officer_count": record["offshore_officer_count"] if record else 0,
+        "global_pep_count": record["global_pep_count"] if record else 0,
+        "cvm_proceeding_count": record["cvm_proceeding_count"] if record else 0,
+        "expense_count": record["expense_count"] if record else 0,
+        "data_sources": 19,
     }
 
     _stats_cache = result
@@ -74,5 +79,10 @@ async def list_sources() -> dict[str, list[dict[str, str]]]:
             {"id": "rais", "name": "RAIS (Estatísticas Trabalhistas)", "frequency": "annual"},
             {"id": "inep", "name": "INEP (Censo Educação)", "frequency": "annual"},
             {"id": "dou", "name": "Diário Oficial da União", "frequency": "daily"},
+            {"id": "icij", "name": "ICIJ Offshore Leaks", "frequency": "yearly"},
+            {"id": "opensanctions", "name": "OpenSanctions (PEPs globais)", "frequency": "monthly"},
+            {"id": "cvm", "name": "CVM (Processos Sancionadores)", "frequency": "monthly"},
+            {"id": "camara", "name": "Câmara dos Deputados (CEAP)", "frequency": "monthly"},
+            {"id": "senado", "name": "Senado Federal (CEAPS)", "frequency": "monthly"},
         ]
     }

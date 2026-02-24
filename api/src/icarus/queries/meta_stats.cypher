@@ -40,8 +40,25 @@ CALL {
 CALL {
   MATCH (l:LaborStats) RETURN count(l) AS laborstats_count
 }
+CALL {
+  MATCH (o:OffshoreEntity) RETURN count(o) AS offshore_entity_count
+}
+CALL {
+  MATCH (o:OffshoreOfficer) RETURN count(o) AS offshore_officer_count
+}
+CALL {
+  MATCH (g:GlobalPEP) RETURN count(g) AS global_pep_count
+}
+CALL {
+  MATCH (c:CVMProceeding) RETURN count(c) AS cvm_proceeding_count
+}
+CALL {
+  MATCH (e:Expense) RETURN count(e) AS expense_count
+}
 RETURN total_nodes, total_relationships,
        person_count, company_count, health_count,
        finance_count, contract_count, sanction_count,
        election_count, amendment_count, embargo_count,
-       education_count, convenio_count, laborstats_count
+       education_count, convenio_count, laborstats_count,
+       offshore_entity_count, offshore_officer_count,
+       global_pep_count, cvm_proceeding_count, expense_count

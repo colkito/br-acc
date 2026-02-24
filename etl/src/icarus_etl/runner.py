@@ -4,15 +4,20 @@ import click
 from neo4j import GraphDatabase
 
 from icarus_etl.pipelines.bndes import BndesPipeline
+from icarus_etl.pipelines.camara import CamaraPipeline
 from icarus_etl.pipelines.cnpj import CNPJPipeline
 from icarus_etl.pipelines.comprasnet import ComprasnetPipeline
+from icarus_etl.pipelines.cvm import CvmPipeline
 from icarus_etl.pipelines.datasus import DatasusPipeline
 from icarus_etl.pipelines.dou import DouPipeline
 from icarus_etl.pipelines.ibama import IbamaPipeline
+from icarus_etl.pipelines.icij import ICIJPipeline
 from icarus_etl.pipelines.inep import InepPipeline
+from icarus_etl.pipelines.opensanctions import OpenSanctionsPipeline
 from icarus_etl.pipelines.pgfn import PgfnPipeline
 from icarus_etl.pipelines.rais import RaisPipeline
 from icarus_etl.pipelines.sanctions import SanctionsPipeline
+from icarus_etl.pipelines.senado import SenadoPipeline
 from icarus_etl.pipelines.tcu import TcuPipeline
 from icarus_etl.pipelines.transferegov import TransferegovPipeline
 from icarus_etl.pipelines.transparencia import TransparenciaPipeline
@@ -33,6 +38,11 @@ PIPELINES: dict[str, type] = {
     "inep": InepPipeline,
     "dou": DouPipeline,
     "datasus": DatasusPipeline,
+    "icij": ICIJPipeline,
+    "opensanctions": OpenSanctionsPipeline,
+    "cvm": CvmPipeline,
+    "camara": CamaraPipeline,
+    "senado": SenadoPipeline,
 }
 
 

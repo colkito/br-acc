@@ -41,6 +41,21 @@ CREATE CONSTRAINT convenio_id_unique IF NOT EXISTS
 CREATE CONSTRAINT laborstats_id_unique IF NOT EXISTS
   FOR (l:LaborStats) REQUIRE l.stats_id IS UNIQUE;
 
+CREATE CONSTRAINT offshore_entity_id_unique IF NOT EXISTS
+  FOR (o:OffshoreEntity) REQUIRE o.offshore_id IS UNIQUE;
+
+CREATE CONSTRAINT offshore_officer_id_unique IF NOT EXISTS
+  FOR (o:OffshoreOfficer) REQUIRE o.offshore_officer_id IS UNIQUE;
+
+CREATE CONSTRAINT global_pep_id_unique IF NOT EXISTS
+  FOR (g:GlobalPEP) REQUIRE g.pep_id IS UNIQUE;
+
+CREATE CONSTRAINT cvm_proceeding_id_unique IF NOT EXISTS
+  FOR (c:CVMProceeding) REQUIRE c.pas_id IS UNIQUE;
+
+CREATE CONSTRAINT expense_id_unique IF NOT EXISTS
+  FOR (e:Expense) REQUIRE e.expense_id IS UNIQUE;
+
 // ── Indexes ─────────────────────────────────────────────
 CREATE INDEX person_name IF NOT EXISTS
   FOR (p:Person) ON (p.name);
@@ -141,10 +156,46 @@ CREATE INDEX laborstats_uf IF NOT EXISTS
 CREATE INDEX laborstats_cnae_subclass IF NOT EXISTS
   FOR (l:LaborStats) ON (l.cnae_subclass);
 
+// ── OffshoreEntity Indexes ───────────────────────────────
+CREATE INDEX offshore_entity_name IF NOT EXISTS
+  FOR (o:OffshoreEntity) ON (o.name);
+
+CREATE INDEX offshore_entity_jurisdiction IF NOT EXISTS
+  FOR (o:OffshoreEntity) ON (o.jurisdiction);
+
+// ── OffshoreOfficer Indexes ─────────────────────────────
+CREATE INDEX offshore_officer_name IF NOT EXISTS
+  FOR (o:OffshoreOfficer) ON (o.name);
+
+// ── GlobalPEP Indexes ───────────────────────────────────
+CREATE INDEX global_pep_name IF NOT EXISTS
+  FOR (g:GlobalPEP) ON (g.name);
+
+CREATE INDEX global_pep_country IF NOT EXISTS
+  FOR (g:GlobalPEP) ON (g.country);
+
+// ── CVMProceeding Indexes ───────────────────────────────
+CREATE INDEX cvm_proceeding_date IF NOT EXISTS
+  FOR (c:CVMProceeding) ON (c.date);
+
+// ── Expense Indexes ─────────────────────────────────────
+CREATE INDEX expense_deputy_id IF NOT EXISTS
+  FOR (e:Expense) ON (e.deputy_id);
+
+CREATE INDEX expense_date IF NOT EXISTS
+  FOR (e:Expense) ON (e.date);
+
+CREATE INDEX expense_type IF NOT EXISTS
+  FOR (e:Expense) ON (e.type);
+
+// ── Person Deputy ID Index ──────────────────────────────
+CREATE INDEX person_deputy_id IF NOT EXISTS
+  FOR (p:Person) ON (p.deputy_id);
+
 // ── Fulltext Search Index ───────────────────────────────
 CREATE FULLTEXT INDEX entity_search IF NOT EXISTS
-  FOR (n:Person|Company|Health|Education|Contract|Amendment|Convenio|Embargo|PublicOffice)
-  ON EACH [n.name, n.razao_social, n.cpf, n.cnpj, n.cnes_code, n.object, n.contracting_org, n.convenente, n.infraction, n.org, n.function];
+  FOR (n:Person|Company|Health|Education|Contract|Amendment|Convenio|Embargo|PublicOffice|OffshoreEntity|OffshoreOfficer|GlobalPEP|CVMProceeding|Expense)
+  ON EACH [n.name, n.razao_social, n.cpf, n.cnpj, n.cnes_code, n.object, n.contracting_org, n.convenente, n.infraction, n.org, n.function, n.jurisdiction, n.penalty_type, n.description];
 
 // ── User Constraints ────────────────────────────────────
 CREATE CONSTRAINT user_email_unique IF NOT EXISTS

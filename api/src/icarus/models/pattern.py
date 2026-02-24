@@ -115,4 +115,64 @@ PATTERN_METADATA: dict[str, dict[str, str]] = {
             " with few RAIS-registered employees"
         ),
     },
+    "offshore_connection": {
+        "name_pt": "Conexão offshore com contratos públicos",
+        "name_en": "Offshore connection with public contracts",
+        "desc_pt": (
+            "Pessoa ou empresa vinculada a entidade offshore"
+            " que também possui contratos ou empréstimos públicos"
+        ),
+        "desc_en": (
+            "Person or company linked to offshore entity"
+            " that also holds public contracts or loans"
+        ),
+    },
+    "deputy_supplier_loop": {
+        "name_pt": "Ciclo deputado-fornecedor",
+        "name_en": "Deputy-supplier loop",
+        "desc_pt": (
+            "Deputado que pagou despesa CEAP a empresa"
+            " que também doou para sua campanha eleitoral"
+        ),
+        "desc_en": (
+            "Deputy paid CEAP expense to company"
+            " that also donated to their election campaign"
+        ),
+    },
+    "cvm_sanctioned_receiving": {
+        "name_pt": "Sancionada pela CVM recebendo recursos",
+        "name_en": "CVM-sanctioned receiving funds",
+        "desc_pt": (
+            "Entidade com processo sancionador da CVM"
+            " que recebeu contratos ou empréstimos públicos"
+        ),
+        "desc_en": (
+            "Entity with CVM enforcement proceeding"
+            " that received public contracts or loans"
+        ),
+    },
+    "global_pep_contracts": {
+        "name_pt": "PEP global com contratos",
+        "name_en": "Global PEP with contracts",
+        "desc_pt": (
+            "Pessoa exposta politicamente em base internacional"
+            " com empresa sócia vencedora de contratos públicos"
+        ),
+        "desc_en": (
+            "Internationally listed politically exposed person"
+            " with partner company winning public contracts"
+        ),
+    },
+    "legislator_supplier_loop": {
+        "name_pt": "Legislador sócio de fornecedor próprio",
+        "name_en": "Legislator as own supplier partner",
+        "desc_pt": (
+            "Legislador sócio de empresa que forneceu"
+            " bens ou serviços ao próprio legislador via CEAP/CEAPS"
+        ),
+        "desc_en": (
+            "Legislator who is partner in company"
+            " that supplied goods/services to the same legislator"
+        ),
+    },
 }
