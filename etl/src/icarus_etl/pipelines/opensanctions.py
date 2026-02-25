@@ -28,11 +28,8 @@ BRAZIL_POSITION_TERMS = {
     "ministro", "secretario", "presidente da republica",
 }
 
-# Confidence thresholds
+# Confidence threshold for CPF-based matching (name matching in link_global_peps.cypher)
 EXACT_CPF_MATCH = 1.0
-EXACT_NAME_MATCH = 1.0
-HIGH_NAME_MATCH = 0.85
-MIN_NAME_MATCH = 0.7
 
 
 def _is_brazilian_entity(entity: dict[str, Any]) -> bool:

@@ -71,7 +71,7 @@ class TestCamaraTransform:
         _load_fixture_data(pipeline)
         pipeline.transform()
 
-        assert len(pipeline.expenses) == 7
+        assert len(pipeline.expenses) == 8
 
     def test_produces_deputies(self) -> None:
         pipeline = _make_pipeline()
@@ -86,8 +86,8 @@ class TestCamaraTransform:
         _load_fixture_data(pipeline)
         pipeline.transform()
 
-        # 6 unique CNPJ suppliers (one shared: FORNECEDOR LTDA)
-        assert len(pipeline.suppliers) >= 6
+        # 7 unique CNPJ suppliers (one shared: FORNECEDOR LTDA)
+        assert len(pipeline.suppliers) >= 7
 
     def test_normalizes_deputy_names(self) -> None:
         pipeline = _make_pipeline()
@@ -143,14 +143,36 @@ class TestCamaraTransform:
         _load_fixture_data(pipeline)
         pipeline.transform()
 
+        # 7 CPF-based gastou (deputy without CPF uses deputy_id path)
         assert len(pipeline.gastou_rels) == 7
+
+    def test_gastou_by_deputy_id_created(self) -> None:
+        pipeline = _make_pipeline()
+        _load_fixture_data(pipeline)
+        pipeline.transform()
+
+        # 1 deputy without CPF falls back to deputy_id
+        assert len(pipeline.gastou_by_deputy_id_rels) == 1
+        rel = pipeline.gastou_by_deputy_id_rels[0]
+        assert rel["deputy_id"] == "1004"
+        assert "target_key" in rel
+
+    def test_deputies_by_id_created(self) -> None:
+        pipeline = _make_pipeline()
+        _load_fixture_data(pipeline)
+        pipeline.transform()
+
+        assert len(pipeline.deputies_by_id) == 1
+        deputy = pipeline.deputies_by_id[0]
+        assert deputy["deputy_id"] == "1004"
+        assert deputy["name"] == "DEPUTADO SEM CPF"
 
     def test_forneceu_rels_created(self) -> None:
         pipeline = _make_pipeline()
         _load_fixture_data(pipeline)
         pipeline.transform()
 
-        assert len(pipeline.forneceu_rels) == 7
+        assert len(pipeline.forneceu_rels) == 8
 
     def test_limit_truncates(self) -> None:
         pipeline = _make_pipeline()

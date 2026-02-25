@@ -3,11 +3,15 @@
 Ingests CEAPS (Cota para o Exercicio da Atividade Parlamentar dos Senadores)
 expenses. Creates Expense nodes linked to Person (senator) via GASTOU
 and to Company (supplier) via FORNECEU.
+
+Senator identity enrichment: loads parlamentares.json (from Dados Abertos API)
+to map parliamentary names to CPFs for deterministic matching.
 """
 
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -63,13 +67,58 @@ class SenadoPipeline(Pipeline):
     ) -> None:
         super().__init__(driver, data_dir, limit=limit, chunk_size=chunk_size)
         self._raw: pd.DataFrame = pd.DataFrame()
+        self._senator_lookup: dict[str, dict[str, str]] = {}
         self.expenses: list[dict[str, Any]] = []
         self.suppliers: list[dict[str, Any]] = []
         self.gastou_rels: list[dict[str, Any]] = []
+        self.gastou_by_name_rels: list[dict[str, Any]] = []
         self.forneceu_rels: list[dict[str, Any]] = []
+
+    def _load_senator_lookup(self) -> dict[str, dict[str, str]]:
+        """Load senator identity lookup from parlamentares.json.
+
+        Returns a dict mapping normalized parliamentary name to senator info
+        (cpf, codigo, nome_completo).
+        """
+        lookup_path = Path(self.data_dir) / "senado" / "parlamentares.json"
+        if not lookup_path.exists():
+            logger.info("No parlamentares.json found — senator CPF enrichment disabled")
+            return {}
+
+        with open(lookup_path, encoding="utf-8") as f:
+            senators = json.load(f)
+
+        lookup: dict[str, dict[str, str]] = {}
+        for s in senators:
+            nome = normalize_name(s.get("nome_parlamentar", ""))
+            if nome:
+                lookup[nome] = {
+                    "cpf": s.get("cpf", ""),
+                    "codigo": s.get("codigo", ""),
+                    "nome_completo": s.get("nome_completo", ""),
+                }
+            # Also index by full civil name for broader matching
+            nome_completo = normalize_name(s.get("nome_completo", ""))
+            if nome_completo and nome_completo != nome:
+                lookup[nome_completo] = {
+                    "cpf": s.get("cpf", ""),
+                    "codigo": s.get("codigo", ""),
+                    "nome_completo": s.get("nome_completo", ""),
+                }
+
+        logger.info(
+            "Loaded senator lookup: %d entries (%d with CPF)",
+            len(lookup),
+            sum(1 for v in lookup.values() if v["cpf"]),
+        )
+        return lookup
 
     def extract(self) -> None:
         senado_dir = Path(self.data_dir) / "senado"
+
+        # Load senator identity lookup for CPF enrichment
+        self._senator_lookup = self._load_senator_lookup()
+
         csv_files = sorted(senado_dir.glob("*.csv"))
         if not csv_files:
             logger.warning("No CSV files found in %s", senado_dir)
@@ -98,6 +147,7 @@ class SenadoPipeline(Pipeline):
         expenses: list[dict[str, Any]] = []
         suppliers_map: dict[str, dict[str, Any]] = {}
         gastou: list[dict[str, Any]] = []
+        gastou_by_name: list[dict[str, Any]] = []
         forneceu: list[dict[str, Any]] = []
         skipped = 0
 
@@ -141,9 +191,18 @@ class SenadoPipeline(Pipeline):
                 "source": "senado",
             })
 
-            # Track senator -> expense
-            if senator_name:
+            # Track senator -> expense (CPF-first, name fallback)
+            senator_info = self._senator_lookup.get(senator_name, {})
+            senator_cpf_raw = senator_info.get("cpf", "")
+            senator_cpf_digits = strip_document(senator_cpf_raw)
+            if len(senator_cpf_digits) == 11:
+                senator_cpf = format_cpf(senator_cpf_raw)
                 gastou.append({
+                    "source_key": senator_cpf,
+                    "target_key": expense_id,
+                })
+            elif senator_name:
+                gastou_by_name.append({
                     "senator_name": senator_name,
                     "target_key": expense_id,
                 })
@@ -168,15 +227,19 @@ class SenadoPipeline(Pipeline):
         self.expenses = deduplicate_rows(expenses, ["expense_id"])
         self.suppliers = list(suppliers_map.values())
         self.gastou_rels = gastou
+        self.gastou_by_name_rels = gastou_by_name
         self.forneceu_rels = forneceu
 
         if self.limit:
             self.expenses = self.expenses[: self.limit]
 
         logger.info(
-            "Transformed: %d expenses, %d suppliers (skipped %d)",
+            "Transformed: %d expenses, %d suppliers, "
+            "%d GASTOU (CPF) + %d GASTOU (name) (skipped %d)",
             len(self.expenses),
             len(self.suppliers),
+            len(self.gastou_rels),
+            len(self.gastou_by_name_rels),
             skipped,
         )
 
@@ -215,18 +278,29 @@ class SenadoPipeline(Pipeline):
             logger.info("Merged %d supplier Person nodes", count)
 
         # GASTOU: Person (senator) -> Expense
-        # Senators lack CPF in CEAPS data — match by normalized name,
-        # restricted to known candidates to avoid false matches.
+        # Tier 1: CPF-based (from senator lookup enrichment)
         if self.gastou_rels:
+            count = loader.load_relationships(
+                rel_type="GASTOU",
+                rows=self.gastou_rels,
+                source_label="Person",
+                source_key="cpf",
+                target_label="Expense",
+                target_key="expense_id",
+            )
+            logger.info("Created %d GASTOU relationships (CPF)", count)
+
+        # Tier 2: Name-based (no CANDIDATO_EM filter — matches suplentes and
+        # pre-2002 senators who lack TSE candidacy records)
+        if self.gastou_by_name_rels:
             query = (
                 "UNWIND $rows AS row "
                 "MATCH (e:Expense {expense_id: row.target_key}) "
                 "MATCH (p:Person {name: row.senator_name}) "
-                "WHERE (p)-[:CANDIDATO_EM]->(:Election) "
                 "MERGE (p)-[:GASTOU]->(e)"
             )
-            count = loader.run_query(query, self.gastou_rels)
-            logger.info("Created %d GASTOU relationships", count)
+            count = loader.run_query(query, self.gastou_by_name_rels)
+            logger.info("Created %d GASTOU relationships (name)", count)
 
         # FORNECEU: Company/Person -> Expense
         if self.forneceu_rels:

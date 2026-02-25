@@ -65,8 +65,10 @@ class CamaraPipeline(Pipeline):
         self._raw: pd.DataFrame = pd.DataFrame()
         self.expenses: list[dict[str, Any]] = []
         self.deputies: list[dict[str, Any]] = []
+        self.deputies_by_id: list[dict[str, Any]] = []
         self.suppliers: list[dict[str, Any]] = []
         self.gastou_rels: list[dict[str, Any]] = []
+        self.gastou_by_deputy_id_rels: list[dict[str, Any]] = []
         self.forneceu_rels: list[dict[str, Any]] = []
 
     def extract(self) -> None:
@@ -97,8 +99,10 @@ class CamaraPipeline(Pipeline):
 
         expenses: list[dict[str, Any]] = []
         deputies_map: dict[str, dict[str, Any]] = {}
+        deputies_by_id_map: dict[str, dict[str, Any]] = {}
         suppliers_map: dict[str, dict[str, Any]] = {}
         gastou: list[dict[str, Any]] = []
+        gastou_by_deputy_id: list[dict[str, Any]] = []
         forneceu: list[dict[str, Any]] = []
         skipped = 0
 
@@ -144,18 +148,30 @@ class CamaraPipeline(Pipeline):
                 "source": "camara",
             })
 
-            # Track deputy
+            # Track deputy — prefer CPF, fall back to deputy_id
             deputy_cpf_digits = strip_document(deputy_cpf_raw)
             if len(deputy_cpf_digits) == 11:
                 deputy_cpf = format_cpf(deputy_cpf_raw)
                 deputies_map[deputy_cpf] = {
                     "cpf": deputy_cpf,
                     "name": deputy_name,
+                    "deputy_id": deputy_id,
                     "uf": uf,
                     "partido": partido,
                 }
                 gastou.append({
                     "source_key": deputy_cpf,
+                    "target_key": expense_id,
+                })
+            elif deputy_id:
+                deputies_by_id_map[deputy_id] = {
+                    "deputy_id": deputy_id,
+                    "name": deputy_name,
+                    "uf": uf,
+                    "partido": partido,
+                }
+                gastou_by_deputy_id.append({
+                    "deputy_id": deputy_id,
                     "target_key": expense_id,
                 })
 
@@ -182,17 +198,21 @@ class CamaraPipeline(Pipeline):
 
         self.expenses = deduplicate_rows(expenses, ["expense_id"])
         self.deputies = list(deputies_map.values())
+        self.deputies_by_id = list(deputies_by_id_map.values())
         self.suppliers = list(suppliers_map.values())
         self.gastou_rels = gastou
+        self.gastou_by_deputy_id_rels = gastou_by_deputy_id
         self.forneceu_rels = forneceu
 
         if self.limit:
             self.expenses = self.expenses[: self.limit]
 
         logger.info(
-            "Transformed: %d expenses, %d deputies, %d suppliers (skipped %d)",
+            "Transformed: %d expenses, %d deputies (CPF) + %d (deputy_id), "
+            "%d suppliers (skipped %d)",
             len(self.expenses),
             len(self.deputies),
+            len(self.deputies_by_id),
             len(self.suppliers),
             skipped,
         )
@@ -204,10 +224,11 @@ class CamaraPipeline(Pipeline):
 
         loader = Neo4jBatchLoader(self.driver)
 
-        # Load Expense nodes
+        # Load Expense nodes (include deputy_id for linkage)
         expense_nodes = [
             {
                 "expense_id": e["expense_id"],
+                "deputy_id": e["deputy_id"],
                 "type": e["type"],
                 "value": e["value"],
                 "date": e["date"],
@@ -219,10 +240,20 @@ class CamaraPipeline(Pipeline):
         count = loader.load_nodes("Expense", expense_nodes, key_field="expense_id")
         logger.info("Loaded %d Expense nodes", count)
 
-        # Load/merge Person nodes for deputies
+        # Load/merge Person nodes for deputies (CPF-based)
         if self.deputies:
             count = loader.load_nodes("Person", self.deputies, key_field="cpf")
-            logger.info("Merged %d deputy Person nodes", count)
+            logger.info("Merged %d deputy Person nodes (CPF)", count)
+
+        # Load/merge Person nodes for deputies without CPF (deputy_id-based)
+        if self.deputies_by_id:
+            query = (
+                "UNWIND $rows AS row "
+                "MERGE (p:Person {deputy_id: row.deputy_id}) "
+                "SET p.name = row.name, p.uf = row.uf, p.partido = row.partido"
+            )
+            count = loader.run_query(query, self.deputies_by_id)
+            logger.info("Merged %d deputy Person nodes (deputy_id)", count)
 
         # Load/merge Company nodes for CNPJ suppliers
         company_suppliers = [s for s in self.suppliers if "cnpj" in s]
@@ -236,7 +267,7 @@ class CamaraPipeline(Pipeline):
             count = loader.load_nodes("Person", person_suppliers, key_field="cpf")
             logger.info("Merged %d supplier Person nodes", count)
 
-        # GASTOU: Person -> Expense
+        # GASTOU: Person -> Expense (CPF-based)
         if self.gastou_rels:
             count = loader.load_relationships(
                 rel_type="GASTOU",
@@ -246,7 +277,18 @@ class CamaraPipeline(Pipeline):
                 target_label="Expense",
                 target_key="expense_id",
             )
-            logger.info("Created %d GASTOU relationships", count)
+            logger.info("Created %d GASTOU relationships (CPF)", count)
+
+        # GASTOU: Person -> Expense (deputy_id-based, for CPF-less deputies)
+        if self.gastou_by_deputy_id_rels:
+            query = (
+                "UNWIND $rows AS row "
+                "MATCH (p:Person {deputy_id: row.deputy_id}) "
+                "MATCH (e:Expense {expense_id: row.target_key}) "
+                "MERGE (p)-[:GASTOU]->(e)"
+            )
+            count = loader.run_query(query, self.gastou_by_deputy_id_rels)
+            logger.info("Created %d GASTOU relationships (deputy_id)", count)
 
         # FORNECEU: Company/Person -> Expense
         if self.forneceu_rels:

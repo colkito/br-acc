@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -231,3 +233,100 @@ class TestSenadoLoad:
 
         session_mock = pipeline.driver.session.return_value.__enter__.return_value
         assert session_mock.run.call_count == 0
+
+
+class TestSenatorLookupEnrichment:
+    def test_loads_senator_lookup(self) -> None:
+        """Senator lookup loads correctly from parlamentares.json."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            senado_dir = Path(tmpdir) / "senado"
+            senado_dir.mkdir()
+            parlamentares = [
+                {
+                    "codigo": "5012",
+                    "nome_parlamentar": "FLAVIO BOLSONARO",
+                    "nome_completo": "FLAVIO NANTES BOLSONARO",
+                    "cpf": "12345678901",
+                },
+                {
+                    "codigo": "5555",
+                    "nome_parlamentar": "SENADOR SEM CPF",
+                    "nome_completo": "SENADOR SEM CPF COMPLETO",
+                    "cpf": "",
+                },
+            ]
+            (senado_dir / "parlamentares.json").write_text(
+                json.dumps(parlamentares), encoding="utf-8"
+            )
+
+            driver = MagicMock()
+            pipeline = SenadoPipeline(driver=driver, data_dir=tmpdir)
+            lookup = pipeline._load_senator_lookup()
+
+            assert "FLAVIO BOLSONARO" in lookup
+            assert lookup["FLAVIO BOLSONARO"]["cpf"] == "12345678901"
+            # Also indexed by nome_completo
+            assert "FLAVIO NANTES BOLSONARO" in lookup
+            # Senator without CPF still in lookup
+            assert "SENADOR SEM CPF" in lookup
+            assert lookup["SENADOR SEM CPF"]["cpf"] == ""
+
+    def test_missing_parlamentares_returns_empty(self) -> None:
+        """Missing parlamentares.json returns empty lookup (graceful degradation)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            senado_dir = Path(tmpdir) / "senado"
+            senado_dir.mkdir()
+
+            driver = MagicMock()
+            pipeline = SenadoPipeline(driver=driver, data_dir=tmpdir)
+            lookup = pipeline._load_senator_lookup()
+
+            assert lookup == {}
+
+    def test_cpf_enriched_gastou(self) -> None:
+        """Senators with CPF in lookup get CPF-based GASTOU rels."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            senado_dir = Path(tmpdir) / "senado"
+            senado_dir.mkdir()
+            parlamentares = [{
+                "codigo": "1001",
+                "nome_parlamentar": "SENADOR EXEMPLO",
+                "nome_completo": "SENADOR EXEMPLO COMPLETO",
+                "cpf": "12345678901",
+            }]
+            (senado_dir / "parlamentares.json").write_text(
+                json.dumps(parlamentares), encoding="utf-8"
+            )
+
+            driver = MagicMock()
+            pipeline = SenadoPipeline(driver=driver, data_dir=tmpdir)
+            pipeline._senator_lookup = pipeline._load_senator_lookup()
+            # Manually set raw data with one row
+            pipeline._raw = pd.DataFrame([{
+                "SENADOR": "SENADOR EXEMPLO",
+                "TIPO_DESPESA": "Aluguel",
+                "CNPJ_CPF": "12345678000199",
+                "FORNECEDOR": "FORNECEDOR LTDA",
+                "DOCUMENTO": "DOC1",
+                "DATA": "15/01/2024",
+                "DETALHAMENTO": "Teste",
+                "VALOR_REEMBOLSADO": "1.000,00",
+            }])
+            pipeline.transform()
+
+            # Should have CPF-based gastou
+            assert len(pipeline.gastou_rels) == 1
+            assert pipeline.gastou_rels[0]["source_key"] == "123.456.789-01"
+            # No name-based fallback needed
+            assert len(pipeline.gastou_by_name_rels) == 0
+
+    def test_name_fallback_when_no_cpf(self) -> None:
+        """Senators without CPF in lookup use name-based GASTOU."""
+        pipeline = _make_pipeline()
+        _load_fixture_data(pipeline)
+        # No senator lookup → all go to name-based path
+        pipeline._senator_lookup = {}
+        pipeline.transform()
+
+        assert len(pipeline.gastou_rels) == 0
+        assert len(pipeline.gastou_by_name_rels) == 6
